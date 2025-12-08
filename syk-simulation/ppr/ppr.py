@@ -21,15 +21,25 @@ class PPR(Qubrick):
 
 
         # CNOT chain for Z parity
-        for i in range(qubits.__len__() - 1):
-            qubits[i].x(cond=qubits[qubits.__len__() -1])
+        qubits_in_masks = x_mask | z_mask
+        target = qubits_in_masks.bit_length() - 1
+        controls_mask = qubits_in_masks & ~(1 << target)
+
+        uncomputation_controls = []
+
+        while controls_mask:
+            lsb = controls_mask & -controls_mask
+            q = lsb.bit_length() - 1
+            uncomputation_controls.append(q)
+            qubits[target].x(cond=qubits[q])
+            controls_mask ^= lsb          
         
         # Apply Rz rotation on the last qubit
-        qubits[qubits.__len__() -1].rz(theta)
+        qubits[target].rz(theta)
 
         # Uncompute CNOT chain
-        for i in range(qubits.__len__() - 2, -1, -1):
-            qubits[i].x(cond=qubits[qubits.__len__() -1])
+        for i in reversed(uncomputation_controls):
+            qubits[target].x(cond=qubits[i])
 
         # Uncompute basis changes
         ppr_qpu.s_inv(x_mask & z_mask)

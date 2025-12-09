@@ -4,6 +4,15 @@ import numpy as np
 
 from .ppr import PPR
 
+
+def test_simple_ppr():
+    num_qubits = 4
+    x_mask = 0b0000
+    z_mask = 0b1111
+    theta = 90.0
+    run_test_ppr(num_qubits, x_mask, z_mask, theta)
+
+
 def test_ppr():
     num_qubits = randint(2, 4)
     x_mask = randint(0, 2**num_qubits - 1)
@@ -23,8 +32,10 @@ def run_test_ppr(num_qubits: int, x_mask: int, z_mask: int, theta: float | Units
 
     qpu.reset(num_qubits)
 
-    qubits.ppr(theta=theta, x_mask=x_mask, z_mask=z_mask)
-    ufilter = qpu.get_filter_by_name('>>unitary>>')
-    matrix2 = ufilter.get()
-    # qpu.print_instructions()
+    pq_qpu = QPU(num_qubits=num_qubits, filters=">>unitary>>")
+    pq_qubits = Qubits(qpu=pq_qpu, num_qubits=num_qubits)
+
+    pq_qubits.ppr(theta=theta, x_mask=x_mask, z_mask=z_mask)
+    pq_ufilter = pq_qpu.get_filter_by_name('>>unitary>>')
+    matrix2 = pq_ufilter.get()
     assert np.allclose(matrix, matrix2)

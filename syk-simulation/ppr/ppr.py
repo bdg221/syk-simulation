@@ -1,9 +1,17 @@
 from psiqworkbench import Qubits, Qubrick, QPU, Units
 
+
 class PPR(Qubrick):
-    """ This class implements Pauli Product Rotations (PPR) on a set of qubits."""
-    def _compute(self, qubits: Qubits, theta: float | Units.RotationAngle | tuple[int, int], x_mask: int, z_mask: int):
-        """ Apply a Pauli Product Rotation on the specified qubits.
+    """This class implements Pauli Product Rotations (PPR) on a set of qubits."""
+
+    def _compute(
+        self,
+        qubits: Qubits,
+        theta: float | Units.RotationAngle | tuple[int, int],
+        x_mask: int,
+        z_mask: int,
+    ):
+        """Apply a Pauli Product Rotation on the specified qubits.
 
         Args:
             qubits (Qubits): The qubits to apply the rotation on.
@@ -14,11 +22,10 @@ class PPR(Qubrick):
 
         # get QPU from qubits to use QPU gates
         ppr_qpu = qubits.qpu
-        
-        # Adjust any qubits with Clifford gates to get them into Z basis
-        ppr_qpu.had(x_mask)
-        ppr_qpu.s(x_mask & z_mask)
 
+        # Adjust any qubits with Clifford gates to get them into Z basis
+        ppr_qpu.s_inv(x_mask & z_mask)
+        ppr_qpu.had(x_mask)
 
         # CNOT chain for Z parity
         qubits_in_masks = x_mask | z_mask
@@ -32,16 +39,20 @@ class PPR(Qubrick):
             q = lsb.bit_length() - 1
             uncomputation_controls.append(q)
             qubits[target].x(cond=qubits[q])
-            controls_mask ^= lsb          
-        
+            controls_mask ^= lsb
+
         # Apply Rz rotation on the last qubit
         # qubits[target].rz(2.0*theta)
-        qubits[target].rz(2.0*theta)
+        if isinstance(theta, tuple):
+            double_theta = (theta[0] * 2, theta[1])
+        else:
+            double_theta = 2 * theta
+        qubits[target].rz(double_theta)
 
         # Uncompute CNOT chain
         for i in reversed(uncomputation_controls):
             qubits[target].x(cond=qubits[i])
 
         # Uncompute basis changes
-        ppr_qpu.s_inv(x_mask & z_mask)
         ppr_qpu.had(x_mask)
+        ppr_qpu.s(x_mask & z_mask)

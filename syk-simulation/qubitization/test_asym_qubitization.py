@@ -10,13 +10,13 @@ aq_module = importlib.import_module("syk-simulation.qubitization.asymmetric_qubi
 from psiqworkbench import QPU, Qubits
 
 
-@mark.parametrize(
-    "N,num_terms,depth",
-    [
-        # (6, 12, 2),
-        # (8, 70, 5),
-    ],
-)  # (10, 100, 7)
+# @mark.parametrize(
+#     "N,num_terms,depth",
+#     [
+#         # (6, 12, 2),
+#         # (8, 70, 5),
+#     ],
+# )  # (10, 100, 7)
 def manual_test_asymmetric_qubitization(N, num_terms, depth):
     # N = 8  # number of Majorana fermions, 100 is interesting
     # num_terms = 70  # number of Pauli terms in the Hamiltonian
@@ -52,8 +52,8 @@ def generate_pauli_strings(num_terms, num_system_qubits):
     return pauli_strings
 
 
-def run_aq():
-    manual_test_asymmetric_qubitization(6, 12, 2)
+# def run_aq():
+#     manual_test_asymmetric_qubitization(6, 12, 2)
 
 
-run_aq()
+# run_aq()

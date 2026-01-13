@@ -1,13 +1,19 @@
-from pytest import mark
+# from pytest import mark
+from syk_simulation.qubitization.asymmetric_qubitization import AsymmetricQubitization, OracleB
+from psiqworkbench import QPU, Qubits
 import numpy as np
 
-import importlib
 
-aq_module = importlib.import_module("syk-simulation.qubitization.asymmetric_qubitization")
-
-
-# from "syk-simulation".qubitization.asymmetric_qubitization import OracleA, OracleB, AsymmetricQubitization
-from psiqworkbench import QPU, Qubits
+def test_oracleb():
+    num_terms = 12
+    num_index_qubits = int(np.ceil(np.log2(num_terms)))
+    qpu = QPU(num_qubits=num_index_qubits, filters=[">>state-vector-sim>>", ">>buffer>>"])
+    index = Qubits(num_index_qubits, "index", qpu=qpu)
+    oracleB = OracleB()
+    oracleB.compute(index=index)
+    state = qpu.pull_state_specific(index)
+    for coeff in state:
+        assert np.isclose(np.abs(coeff), 1 / np.sqrt(2**num_index_qubits))
 
 
 # @mark.parametrize(
@@ -32,7 +38,7 @@ def manual_test_asymmetric_qubitization(N, num_terms, depth):
     index = Qubits(num_index_qubits, "index", qpu=qpu)
     system = Qubits(num_system_qubits, "system", qpu=qpu)
 
-    AQ = aq_module.AsymmetricQubitization()
+    AQ = AsymmetricQubitization()
 
     pauliStrings = generate_pauli_strings(num_terms, num_system_qubits)
     AQ.compute(branch=branch, index=index, system=system, depth=depth, terms=pauliStrings)

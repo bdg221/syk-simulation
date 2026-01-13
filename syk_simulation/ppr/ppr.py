@@ -1,4 +1,4 @@
-from psiqworkbench import Qubits, Qubrick, QPU, Units
+from psiqworkbench import Qubits, Qubrick, Units
 
 
 class PPR(Qubrick):

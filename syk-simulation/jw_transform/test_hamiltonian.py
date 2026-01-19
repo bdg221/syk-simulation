@@ -1,6 +1,8 @@
 from workbench_algorithms.utils import PauliMask, PauliSum 
 from math import floor 
-from .hamiltonian import syk_majorana_to_mask
+from itertools import combinations
+from .hamiltonian import syk_majorana_to_mask, SYK_hamil
+from scipy.special import comb
 
 from pytest import mark
 
@@ -25,3 +27,8 @@ def test_jw_transform(coefficient, indices, pauli_string):
     pauli_op = syk_majorana_to_mask(indices)
     assert [pauli_op[0], pauli_op[1].get_pauli_string()] == [coefficient, pauli_string]
 
+def test_syk_summands():
+    for i in range(2,8):
+        theory = comb(2*i, 4)
+        hamil = SYK_hamil(2*i)
+        assert theory == len(hamil)

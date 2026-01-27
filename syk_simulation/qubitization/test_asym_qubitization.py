@@ -1,9 +1,11 @@
 # from pytest import mark
-from syk_simulation.qubitization.asymmetric_qubitization import AsymmetricQubitization, OracleB
+from syk_simulation.qubitization.asymmetric_qubitization import AsymmetricQubitization, OracleB, OracleA
 from psiqworkbench import QPU, Qubits
 import numpy as np
+from scipy.stats import normaltest
 
 
+# TODO do more than 1 test with num_terms = 12
 def test_oracleb():
     num_terms = 12
     num_index_qubits = int(np.ceil(np.log2(num_terms)))
@@ -16,6 +18,26 @@ def test_oracleb():
         assert np.isclose(np.abs(coeff), 1 / np.sqrt(2**num_index_qubits))
 
 
+def test_oraclea():
+    num_terms = 12
+    num_index_qubits = int(np.ceil(np.log2(num_terms)))
+    qpu = QPU(num_qubits=num_index_qubits, filters=[">>state-vector-sim>>", ">>buffer>>"])
+    index = Qubits(num_index_qubits, "index", qpu=qpu)
+    oracleA = OracleA()
+    oracleA.compute(index=index, random_depth=2)
+    state = qpu.pull_state_specific(index)
+    mean = np.mean(state)
+    var = np.var(state)
+
+    assert abs(mean) < 5 / np.sqrt(len(state))
+
+    assert abs(var - 1 / len(state)) < 0.3 / len(state)
+
+    stat, p_value = normaltest(np.real(state))
+
+    # assert p_value > 0.01
+
+
 # @mark.parametrize(
 #     "N,num_terms,depth",
 #     [
@@ -23,12 +45,13 @@ def test_oracleb():
 #         # (8, 70, 5),
 #     ],
 # )  # (10, 100, 7)
-def manual_test_asymmetric_qubitization(N, num_terms, depth):
+def manual_test_asymmetric_qubitization(N, depth):
     # N = 8  # number of Majorana fermions, 100 is interesting
     # num_terms = 70  # number of Pauli terms in the Hamiltonian
     # depth = 5
 
-    num_system_qubits = int(np.ceil(N / 2))
+    num_system_qubits = N
+    num_terms = N**4
     num_index_qubits = int(np.ceil(np.log2(num_terms)))
 
     total_qubits = int(num_system_qubits + num_index_qubits + 1)
@@ -36,16 +59,12 @@ def manual_test_asymmetric_qubitization(N, num_terms, depth):
 
     branch = Qubits(1, "branch", qpu=qpu)
     index = Qubits(num_index_qubits, "index", qpu=qpu)
-    system = Qubits(num_system_qubits, "system", qpu=qpu)
+    system = Qubits(N, "system", qpu=qpu)
 
     AQ = AsymmetricQubitization()
 
-    pauliStrings = generate_pauli_strings(num_terms, num_system_qubits)
-    AQ.compute(branch=branch, index=index, system=system, depth=depth, terms=pauliStrings)
+    AQ.compute(branch=branch, index=index, system=system, depth=depth)
 
-    # Here you would add assertions to verify the correctness of the qubitization
-    # For example, checking the final state vector or specific gate applications
-    # This is a placeholder for actual verification logic
     assert True  # Replace with actual checks
 
 

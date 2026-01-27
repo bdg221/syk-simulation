@@ -13,11 +13,11 @@ class AsymmetricQubitization(Qubrick):
 
     def _compute(
         self,
-        N: int,
         branch: Qubits,
         index: Qubits,
         system: Qubits,
-        depth: int = 2,
+        random_depth: int = 2,
+        random_seed: int | None = None,
         ctrl: Qubits | None = None,
     ):
         """Apply asymmetric qubitization on the given qubits.
@@ -28,6 +28,8 @@ class AsymmetricQubitization(Qubrick):
             system (Qubits): The system qubits to apply the Hamiltonian on.
             depth (int): The depth of the oracle A preparation.
         """
+        if random_seed is not None:
+            np.random.seed(random_seed)
 
         branch.had(cond=ctrl)
 
@@ -37,11 +39,11 @@ class AsymmetricQubitization(Qubrick):
         reflect = Reflect()
 
         # Run PREPARE for qubitization
-        oracleA.compute(index=index, depth=depth, ctrl=(ctrl | ~branch))
+        oracleA.compute(index=index, random_depth=random_depth, ctrl=(ctrl | ~branch))
         oracleB.compute(index=index, ctrl=(ctrl | branch))
 
         # Run SELECT for qubitization
-        select.compute(N, index=index, system=system, ctrl=ctrl)
+        select.compute(index=index, system=system, ctrl=ctrl)
 
         # Run UNPREPARE for qubitization
         oracleB.uncompute()
@@ -55,14 +57,14 @@ class AsymmetricQubitization(Qubrick):
 class OracleA(Qubrick):
     """This class implements the oracle A for asymmetric qubitization."""
 
-    def _compute(self, index: Qubits, depth: int = 5, ctrl: Qubits | None = None):
+    def _compute(self, index: Qubits, random_depth: int = 5, ctrl: Qubits | None = None):
         """Implements the oracle A which prepares the state |A> = sum_j sqrt(|a_j|/lambda) |j>
         on the branch qubits and encodes the sign of a_j in the index qubits.
 
         Args:
             index (Qubits): The index qubits to encode the sign information.
         """
-        for _ in range(depth):
+        for _ in range(random_depth):
             for q in index:
                 theta = np.random.normal()
                 q.ry(theta, cond=ctrl)
@@ -105,12 +107,10 @@ class Select(Qubrick):
         r = index[2 * index_chunk : 3 * index_chunk]
         s = index[3 * index_chunk :]
 
-        self.system_index = 0
-
         def apply_majorana_operation(
             self, auxiliary, accumulator, indeces, system, aux_index, ctrl: Qubits | None = None
         ):
-            # if at start of index - aux_index uses BIG ENDIAN
+            # if at least significant bit (start) of index register : aux_index uses BIG ENDIAN
             if aux_index == len(indeces) - 1:
                 accumulator.x(ctrl)
                 lelbow_control = ctrl | ~indeces[aux_index]
@@ -143,7 +143,11 @@ class Select(Qubrick):
                 apply_majorana_operation(self, auxiliary, accumulator, indeces, system, aux_index - 1)
             auxiliary[aux_index].relbow(cond=relbow_control)
 
+        self.system_index = 0
         apply_majorana_operation(self, auxiliary, accumulator, p, system, len(p) - 1, ctrl=ctrl)
+        self.system_index = 0
         apply_majorana_operation(self, auxiliary, accumulator, q, system, len(q) - 1, ctrl=ctrl)
+        self.system_index = 0
         apply_majorana_operation(self, auxiliary, accumulator, r, system, len(r) - 1, ctrl=ctrl)
+        self.system_index = 0
         apply_majorana_operation(self, auxiliary, accumulator, s, system, len(s) - 1, ctrl=ctrl)

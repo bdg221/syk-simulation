@@ -1,10 +1,37 @@
 from workbench_algorithms.utils import PauliMask, PauliSum 
 from math import floor 
 from itertools import combinations
-from .hamiltonian import syk_majorana_to_mask, SYK_hamil
+from .hamiltonian import SYK_pair_to_mask, SYK_hamil
 from scipy.special import comb
 
+import numpy as np
+from scipy.stats import kstest
 from pytest import mark
+
+
+def sign_coefficient(array: tuple | list):
+    #For testing the probability distribution in SYK model
+    parity = 1
+    coefs = [floor(i/2) for i in array]
+    par = [i%2 for i in array]
+    ln = len(set(coefs))
+
+    if (ln == 4) and (par[0] == par[2]):
+        parity*=-1
+    elif ln==3:
+        if (coefs[0]==coefs[1]) and (par[2]==1):
+            parity*=-1
+        elif par[0]==1:
+            parity*=-1
+    elif ln==2:
+        parity *=-1
+    return parity
+
+def mult_SYK_pairs(array):
+    pauli_op1 = SYK_pair_to_mask(array[0], array[1])
+    pauli_op2 = SYK_pair_to_mask(array[2], array[3])
+
+    return [np.real(pauli_op1[0]*pauli_op2[0]), pauli_op1[1]*pauli_op2[1]]
 
 @mark.parametrize(
     "coefficient, indices, pauli_string",
@@ -24,11 +51,81 @@ from pytest import mark
 )
 
 def test_jw_transform(coefficient, indices, pauli_string):
-    pauli_op = syk_majorana_to_mask(indices)
-    assert [pauli_op[0], pauli_op[1].get_pauli_string()] == [coefficient, pauli_string]
+    pauli_op1 = SYK_pair_to_mask(indices[0],indices[1])
+    pauli_op2 = SYK_pair_to_mask(indices[2],indices[3])
+
+    pauli_op = pauli_op1[1]*pauli_op2[1]
+    assert [pauli_op1[0]*pauli_op2[0], pauli_op.get_pauli_string()] == [coefficient, pauli_string]
+
+def test_SYK_pair_phase():
+    for i in range(50):
+        p = np.random.randint(0,200)
+        q = np.random.randint(0,200)
+        if p != q:
+            summand1 = SYK_pair_to_mask(p,q)
+            summand2=SYK_pair_to_mask(q,p)
+        assert summand1 == [-1*summand2[0], summand2[1]]
+
+def test_SYK_coefficient():
+    for i in range(100):
+        array = np.random.randint(0,200, size = 4)
+        while len(set(array))<4:
+            array = np.random.randint(0,200, size = 4)
+        array.sort()
+        summand = mult_SYK_pairs(array)
+        assert sign_coefficient(array) == summand[0]
+
+# def test_majorana_prod_phase():
+#     for i in range(100):
+#         array = np.random.randint(0,200, size = 4)
+#         while len(set(array))<4:
+#             array = np.random.randint(0,200, size = 4)
+#     #array.sort()
+#     #array_perm = np.random.permutation(array)
+#     #signum = permutation_sign(array_perm)
+
+#         array_perm =[ array[0], array[1], array[3], array[2]]
+
+#         flipped_summand = generate_SYK_summand(array_perm)
+#         if generate_SYK_summand(array)[0]!= -1*flipped_summand[0]:
+#             print(array)
+    
+#         assert generate_SYK_summand(array) == [-1*flipped_summand[0], flipped_summand[1]]
+
+def test_majorana_prod_string():
+    for i in range(100):
+        array = np.random.randint(0,200, size = 4)
+        while len(set(array))<4:
+            array = np.random.randint(0,200, size = 4)
+        array.sort()
+        array_perm = np.random.permutation(array)
+
+        assert mult_SYK_pairs(array_perm)[1] == mult_SYK_pairs(array)[1]
+
 
 def test_syk_summands():
     for i in range(2,8):
         theory = comb(2*i, 4)
-        hamil = SYK_hamil(2*i)
+        hamil = SYK_hamil(i)
         assert theory == len(hamil)
+
+def compare_syk_distribution(n: int, J: float, rtol=1e-4, atol=1e-6):
+    hamil = SYK_hamil(n, J= J, random_seed=42)
+    coefs = hamil.get_coefficients()
+
+    scale = np.sqrt(6/(2*n)**3)*J/96
+    res1 = kstest(coefs, np.random.normal(loc=0, scale = scale))
+
+    np.random.seed(42)
+    coefs_ideal = np.random.normal(loc=0, scale= scale, size = len(coefs))
+
+    assert res1[1]>0.05
+    assert np.allclose([0, np.var(coefs_ideal)], [np.mean(coefs), np.var(coefs)], rtol=rtol, atol=atol)
+
+def test_syk_statistics():
+     n=30
+     J=10
+     compare_syk_distribution(n=n, J=J)
+     
+
+    
